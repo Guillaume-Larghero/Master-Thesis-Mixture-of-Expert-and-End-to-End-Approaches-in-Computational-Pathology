@@ -5,8 +5,11 @@ import pandas as pd
 Dummy_tensor = torch.randn((3,3,100))
 print(Dummy_tensor)
 
-class MOE():
+class MOE(torch.nn.Module):
     
     def __init__(self) -> None:
         pass
     
+    
+    def forward(self) :
+        pass
