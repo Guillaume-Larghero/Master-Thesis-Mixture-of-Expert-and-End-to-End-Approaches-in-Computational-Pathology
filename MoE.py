@@ -1,10 +1,8 @@
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
-
-Dummy_tensor = torch.randn((3,3,100))
-print(Dummy_tensor)
 
 
 class Expert(nn.Module):
@@ -62,3 +60,7 @@ class MixtureOfExperts(nn.Module):
         return final_output
     
     
+if __name__ == '__main__' :
+    
+    Dummy_tensor = torch.randn((3,3,100))
+    print(Dummy_tensor)
