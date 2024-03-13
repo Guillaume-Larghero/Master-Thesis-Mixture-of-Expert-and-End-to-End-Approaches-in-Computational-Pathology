@@ -13,14 +13,19 @@ class Expert(nn.Module):
     the features extracted by the FM and predict target of interest based on those extracted features. We have
     to have 1 expert per FM.
     '''
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim : int, hidden_dim_fc1 : int, hidden_dim_fc2 : int, output_dim : int, dropout_prob : float):
         super(Expert, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim,output_dim)
+        self.fc1 = nn.Linear(input_dim, hidden_dim_fc1)
+        self.fc2 = nn.Linear(hidden_dim_fc1, hidden_dim_fc2)
+        self.fc3 = nn.Linear(hidden_dim_fc2,output_dim)
+        self.dropout = nn.Dropout(dropout_prob)
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.fc3(x)
         return x
         
     
