@@ -16,13 +16,13 @@ class Expert(nn.Module):
         self.fc1 = nn.Linear(input_dim, hidden_dim_fc1)
         self.fc2 = nn.Linear(hidden_dim_fc1, hidden_dim_fc2)
         self.fc3 = nn.Linear(hidden_dim_fc2,output_dim)
-        self.dropout = nn.Dropout(dropout_prob)
+        #self.dropout = nn.Dropout(dropout_prob)
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = F.relu(self.fc2(x))
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = self.fc3(x)
         return x
         
@@ -58,6 +58,31 @@ class MixtureOfExperts(nn.Module):
         weighted_expert_outputs = [gate_output[:, i:i+1] * expert_output for i, expert_output in enumerate(expert_outputs)]
         final_output = torch.sum(torch.stack(weighted_expert_outputs, dim=0), dim=0)
         return final_output
+    
+    
+    
+def train_MoEmodel(model, train_loader, optimizer, final_loss_fn, num_epochs):
+    '''
+    Function to train the mixture of experts model.
+    
+    Input:
+    - model: The MixtureOfExperts model instance
+    - train_loader: DataLoader for training data
+    - optimizer: Optimizer for training the model
+    - criterion: Loss function
+    - num_epochs: Number of epochs for training
+    '''
+    model.train() 
+    for epoch in range(num_epochs):
+        running_loss = 0.0
+        for inputs, labels in train_loader:
+            optimizer.zero_grad()
+            expert_weights, expert_logits = model(inputs)
+            loss = final_loss_fn(expert_weights, expert_logits, labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader)}")
     
     
 if __name__ == '__main__' :
