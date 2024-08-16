@@ -7,7 +7,7 @@
 #SBATCH -e logsSC/SC%j.err
 
 
-source activate /home/gul075/.conda/envs/dl4aml
+source activate # Activate Env Here
 
 
 INPUT_DIR=$1
