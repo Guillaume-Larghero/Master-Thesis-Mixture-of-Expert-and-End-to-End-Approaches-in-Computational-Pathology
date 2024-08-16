@@ -24,6 +24,9 @@ Options
     This can be useful for slides that have a lot of black marker annotations around the edges.
     E.g. in hematological slides.
 --center_mask_height: The height of the center mask as a fraction of the image height (default 0.5).
+--center_mask_width: The width of the center mask as a fraction of the image width (default 0.9).
+--is_Cytology: Set this argument to True if you want to tile a Cytology dataset (blood smear samples). If set to True, relevance of patches will be 
+               computed using a custom score function that takes into account the clear separation of cell nucleus, the presence of cells and the bluriness of the patch ; instead of the quantity of tissue on the patch.
 
 ## Examples
 
@@ -58,6 +61,7 @@ import shutil
 import sys
 import threading
 import zipfile
+import random
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -69,7 +73,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import openslide
 import pandas as pd
-import PIL
+import PIL 
 from matplotlib.patches import Rectangle
 from PIL import Image
 from tqdm import tqdm
@@ -161,6 +165,18 @@ def parse_args() -> argparse.Namespace:
         default=0.5,
         help="The height of the center mask as a fraction of the image height (default 0.5).",
     )
+    parser.add_argument(
+        "--center_mask_width",
+        type=float,
+        default=0.5,
+        help="The width of the center mask as a fraction of the image width (default 0.9).",
+    )
+    parser.add_argument(
+        "--is_Cytology",
+        type=bool,
+        default=False,
+        help="Set up to True if you are tiling a Cytology dataset. This will rank patches according to the patch_score function instead of using tissue percentage"
+    )
     return parser.parse_args()
 
 
@@ -179,6 +195,8 @@ class PatchConfig:
     only_coords: bool = False
     use_center_mask: bool = False
     center_mask_height: float = 0.5
+    center_mask_width : float = 0.5
+    is_Cytology: bool = False
 
 
 def setup_folders(args: PatchConfig):
@@ -309,37 +327,139 @@ def clean_unfinished(args: PatchConfig, slide_id):
         os.remove(f"{args.patch_folder}/{slide_id}.csv")
     if os.path.exists(f"{args.patch_folder}/{slide_id}.zip"):
         os.remove(f"{args.patch_folder}/{slide_id}.zip")
+        
+def compute_patch_score(tile : PIL.Image.Image) -> float:
 
+    #Calculate optical_density_sum and bluriness (var of laplacian):
+    image_array = np.array(tile)
+    grayscale = np.dot(image_array[:, :, :3], [0.2989, 0.5870, 0.1140])
+    grayscale_cv = np.array(grayscale, dtype=np.uint8)
+    normalized_grayscale = grayscale / 255.0
+    normalized_grayscale[normalized_grayscale == 0] = 0.01 # avoid 0 division
+    
+    # Calculate optical density:
+    optical_density = -np.log10(normalized_grayscale)
+    optical_density_sum = np.sum(optical_density)
+    
+    #Calculate bluriness:
+    laplacian_var = cv2.Laplacian(grayscale_cv, cv2.CV_64F).var()
+    
+    #calculate color percentage
+    image_arrayHSV = cv2.cvtColor(image_array, cv2.COLOR_RGB2HSV)
+        
+    # Define color ranges for Blue and Pink in HSV
+    # These ranges may need to be adjusted to better fit your specific dataset
+    color_ranges = {
+        'blue': ((100, 150, 50), (140, 255, 255)),  # Adjusted range for Blue
+        'pink': ((150, 100, 100), (180, 255, 255))  # Adjusted range for Pink
+    }
 
+    color_percentages = {}
+    # Initialize and process each color range
+    for color, (lower, upper) in color_ranges.items():
+        lower = np.array(lower, dtype=np.uint8)
+        upper = np.array(upper, dtype=np.uint8)
+        
+        # Create a mask for the current range
+        current_mask = cv2.inRange(image_arrayHSV, lower, upper)
+        
+        # Calculate the percentage of pixels within this range
+        color_percentage = np.sum(current_mask > 0) / current_mask.size
+        
+        # Store the result in a dictionary
+        color_percentages[color] = color_percentage
+        
+    
+    #Calculate cell_separation_score:
+    grayscale = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(grayscale, 128, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    kernel = np.ones((3,3), np.uint8)
+    opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+    dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+    _, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
+    sure_fg = np.uint8(sure_fg)
+    contours, _ = cv2.findContours(sure_fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    centroids = [np.mean(cnt, axis=0) for cnt in contours]
+    distances = []
+    for i in range(len(centroids)):
+        for j in range(i+1, len(centroids)):
+            dist = np.linalg.norm(centroids[i] - centroids[j])
+            distances.append(dist)
+
+    if distances:
+        average_distance = np.mean(distances)
+    else:
+        average_distance = 0
+    
+    cell_separation_score = average_distance / (image_array.shape[0] * image_array.shape[1])  # Normalized by tile size
+    
+    #Check if values of the patch are in a relevant range and score them:
+    #print(f"Optical_density score is : {optical_density_sum} and cell sep score is {cell_separation_score} and laplacian var is {laplacian_var}")
+    # Good patch conditions
+    if (15000 <= optical_density_sum <= 32000 and #12K
+        0.25 < color_percentages['blue'] < 0.90 and #70
+        0.002 < cell_separation_score  and # < 0.0038 
+        laplacian_var > 40):
+        return optical_density_sum + 10e9 + random.randint(1, 5000)
+
+    # Additional condition for lesser good but still acceptable patches
+    elif (8000 <= optical_density_sum <= 30000 and
+          0.01 < color_percentages['blue'] < 0.70 and
+          cell_separation_score > 0.001 and
+          laplacian_var > 40):
+        return optical_density_sum + 10e7 + random.randint(1, 5000)
+    
+    # Bad patch condition
+    elif (8000 <= optical_density_sum <= 30000 and
+          0.0 < color_percentages['blue'] and
+          cell_separation_score > 0.001 and
+          laplacian_var > 40):
+        return optical_density_sum + 10e5 + random.randint(1, 5000)
+    else:
+        return random.randint(1,5000)
+
+        
 class PatchesQueue:
     """
-    A simple prio queue to keep track of the top N patches.
+    A simple priority queue to keep track of the top N patches.
     Helps to avoid sorting the patches at the end and keep memory usage low.
     """
 
-    def __init__(self, max_size):
+    def __init__(self, max_size, is_Cytology=False):
         self.max_size = max_size
+        self.is_Cytology = is_Cytology
         self.heap = []
         self.lock = threading.Lock()
 
-    def check_percentage(self, tissue_percentage: float) -> bool:
+    def check_value(self, value: float) -> bool:
         with self.lock:
             if len(self.heap) < self.max_size:
                 return True
-            elif tissue_percentage > self.heap[0][0]:
+            elif value > self.heap[0][0]:
                 return True
             return False
 
     def try_add_patch_tuple(
-        self, tissue_percentage, patch_info: tuple, patches: Dict[int, PIL.Image.Image]
+        self, value, patch_info: tuple, patches: Dict[int, PIL.Image.Image]
     ):
         with self.lock:
             if len(self.heap) < self.max_size:
-                heapq.heappush(self.heap, (tissue_percentage, patch_info, patches))
-            elif tissue_percentage > self.heap[0][0]:
+                heapq.heappush(self.heap, (value, patch_info, patches))
+            elif value > self.heap[0][0]:
                 heapq.heappop(self.heap)
-                heapq.heappush(self.heap, (tissue_percentage, patch_info, patches))
+                heapq.heappush(self.heap, (value, patch_info, patches))
 
+    def check_percentage(self, tissue_percentage: float) -> bool:
+        if self.is_Cytology:
+            return False
+        return self.check_value(tissue_percentage)
+
+    def check_score(self, score: float) -> bool:
+        if not self.is_Cytology:
+            return False
+        return self.check_value(score)
+        
     def get_top_patches(self):
         with self.lock:
             return [heapq.heappop(self.heap) for _ in range(len(self.heap))]
@@ -351,7 +471,10 @@ def get_slide_id(slide_path: str) -> str:
     is_tcga = len(fname.split("-")) == 10
     if is_tcga:
         return os.path.basename(slide_path).split(".")[1]
-    return os.path.basename(slide_path).split(".")[0]
+    # Check if the filename contains multiple dots in it, ex cytology slide contains date : 0081__-__02.14.20.ndpi
+    if fname.count('.') > 1:
+        return '.'.join(fname.split('.')[:-1])
+    return fname.split('.')[0]
 
 
 def calculate_tissue_percentage(
@@ -388,7 +511,7 @@ def get_tissue_mask(args: PatchConfig, img_rgb: np.ndarray):
         center_mask = np.zeros_like(tissue_mask)
         height, width = center_mask.shape
         rect_height = int(height * args.center_mask_height)
-        rect_width = rect_height
+        rect_width = int(width * args.center_mask_width)
         start_x = (width - rect_width) // 2
         start_y = (height - rect_height) // 2
         center_mask[start_y : start_y + rect_height, start_x : start_x + rect_width] = 1
@@ -444,6 +567,7 @@ def extract_patches(
     center_location: Tuple[int, int],
     output_size: int,
     target_mags: List[int] = [40, 20, 10],
+    is_Cytology : bool = False,
 ) -> Tuple[Dict[int, PIL.Image.Image], Dict[int, float]]:
     if type(output_size) not in [tuple, list]:
         output_size = (output_size, output_size)
@@ -455,7 +579,7 @@ def extract_patches(
         for level in range(slide.level_count)
     }
     patches = {}
-    percentages = {}
+    scores = {}
     for target_mag in target_mags:
         if target_mag in native_magnifications:
             level = native_magnifications[target_mag]
@@ -489,9 +613,13 @@ def extract_patches(
             )
             patch = slide.read_region(new_location, nearest_higher_level, extract_size)
             patch = patch.resize(output_size, Image.LANCZOS)
-        patches[target_mag] = patch.convert("RGB")
-        percentages[target_mag] = calculate_tissue_percentage(patches[target_mag])
-    return patches, percentages
+        if is_Cytology : 
+            patches[target_mag] = patch
+            scores[target_mag] = compute_patch_score(patches[target_mag])
+        else:
+            patches[target_mag] = patch.convert("RGB")
+            scores[target_mag] = calculate_tissue_percentage(patches[target_mag])
+    return patches, scores
 
 
 def save_patches(patch_folder: str, slide_id: str, patches: ImageDict, idx: int):
@@ -512,15 +640,18 @@ def process_patch(
     Processes a patch and returns a tuple of the patch, its coordinates, and the tissue percentage or None if the patch should be discarded.
     """
     try:
-        patches, tissue_percentages = extract_patches(
-            slide_path, (x, y), args.output_size, args.magnifications
+        patches, scores = extract_patches(
+            slide_path, (x, y), args.output_size, args.magnifications , args.is_Cytology
         )
-        if (
-            calculate_tissue_percentage(patches[max(args.magnifications)])
-            < args.tissue_threshold
-        ):
-            return None
-        return patches, x, y, tissue_percentages
+        if args.is_Cytology:
+            return patches,x,y,scores
+        else :
+            if (
+                calculate_tissue_percentage(patches[max(args.magnifications)])
+                < args.tissue_threshold
+            ):
+                return None
+            return patches, x, y, scores
     except Exception as e:
         print(f"Failed to process patch ({x},{y}) at {slide_path}: {e}")
     return None
@@ -528,14 +659,14 @@ def process_patch(
 
 def save_patch_and_record_info(patch_folder, result, slide_id, idx, args):
     if result:
-        patches, x, y, tissue_percentages = result
+        patches, x, y, scores = result
         save_patches(patch_folder, slide_id, patches, idx)
         csv_path = f"{patch_folder}/{slide_id}.csv"
         with open(csv_path, "a") as csv_file:
             for magnification, _ in patches.items():
-                tissue_percentage = tissue_percentages[magnification]
+                score = scores[magnification]
                 csv_file.write(
-                    f"{slide_id},{idx},{x},{y},{tissue_percentage},{args.output_size},{magnification}\n"
+                    f"{slide_id},{idx},{x},{y},{score},{args.output_size},{magnification}\n"
                 )
         return 1
     return 0
@@ -543,7 +674,7 @@ def save_patch_and_record_info(patch_folder, result, slide_id, idx, args):
 
 def process_slide_random_n(args: PatchConfig, slide_path: str, patch_coords: list):
     slide_id = get_slide_id(slide_path)
-    csv_header = "slide_id,idx,x,y,tissue_percentage,patch_size,magnification\n"
+    csv_header = "slide_id,idx,x,y,score,patch_size,magnification\n"
     csv_path = f"{args.patch_folder}/{slide_id}.csv"
     if not os.path.exists(csv_path):
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
@@ -574,8 +705,8 @@ def process_slide_random_n(args: PatchConfig, slide_path: str, patch_coords: lis
 
             if result:
                 # x,y = center_x, center_y
-                patches, x, y, tissue_percentages = result
-                patch_info = (x, y, tissue_percentages, patch_idx)
+                patches, x, y, scores = result
+                patch_info = (x, y, scores, patch_idx)
                 patch_idx += 1
                 # create dictionary for patches
                 patches_dict = {
@@ -584,7 +715,7 @@ def process_slide_random_n(args: PatchConfig, slide_path: str, patch_coords: lis
                 }
                 # add patches to the queue
                 patches_queue.try_add_patch_tuple(
-                    tissue_percentages[max(args.magnifications)],
+                    scores[max(args.magnifications)],
                     patch_info,
                     patches_dict,
                 )
@@ -596,20 +727,20 @@ def process_slide_random_n(args: PatchConfig, slide_path: str, patch_coords: lis
     for _, patch_info, patch_tuple in tqdm(
         top_patches, desc=f"Saving patches for {slide_id}"
     ):
-        x, y, tissue_percentages, idx = patch_info
+        x, y, scores, idx = patch_info
         save_patches(args.patch_folder, slide_id, patch_tuple, idx)
         csv_path = f"{args.patch_folder}/{slide_id}.csv"
         with open(csv_path, "a") as csv_file:
             for magnification, _ in patch_tuple.items():
                 csv_file.write(
-                    f"{slide_id},{idx},{x},{y},{tissue_percentages[magnification]},{args.output_size},{magnification}\n"
+                    f"{slide_id},{idx},{x},{y},{scores[magnification]},{args.output_size},{magnification}\n"
                 )
 
 
 def process_slide_top_n(args: PatchConfig, slide_path: str, patch_coords: list):
     print(f"Option: keep_top_n = {args.keep_top_n}")
     slide_id = get_slide_id(slide_path)
-    csv_header = "slide_id,idx,x,y,tissue_percentage,patch_size,magnification\n"
+    csv_header = "slide_id,idx,x,y,score,patch_size,magnification\n"
     csv_path = f"{args.patch_folder}/{slide_id}.csv"
     if not os.path.exists(csv_path):
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
@@ -634,8 +765,8 @@ def process_slide_top_n(args: PatchConfig, slide_path: str, patch_coords: list):
 
             if result:
                 # x,y = center_x, center_y
-                patches, x, y, tissue_percentages = result
-                patch_info = (x, y, tissue_percentages, patch_idx)
+                patches, x, y, scores = result
+                patch_info = (x, y, scores, patch_idx)
                 patch_idx += 1
                 # create dictionary for patches
                 patches_dict = {
@@ -644,7 +775,7 @@ def process_slide_top_n(args: PatchConfig, slide_path: str, patch_coords: list):
                 }
                 # add patches to the queue
                 patches_queue.try_add_patch_tuple(
-                    tissue_percentages[max(args.magnifications)],
+                    scores[max(args.magnifications)],
                     patch_info,
                     patches_dict,
                 )
@@ -656,13 +787,13 @@ def process_slide_top_n(args: PatchConfig, slide_path: str, patch_coords: list):
     for _, patch_info, patch_tuple in tqdm(
         top_patches, desc=f"Saving patches for {slide_id}"
     ):
-        x, y, tissue_percentages, idx = patch_info
+        x, y, scores, idx = patch_info
         save_patches(args.patch_folder, slide_id, patch_tuple, idx)
         csv_path = f"{args.patch_folder}/{slide_id}.csv"
         with open(csv_path, "a") as csv_file:
             for magnification, _ in patch_tuple.items():
                 csv_file.write(
-                    f"{slide_id},{idx},{x},{y},{tissue_percentages[magnification]},{args.output_size},{magnification}\n"
+                    f"{slide_id},{idx},{x},{y},{scores[magnification]},{args.output_size},{magnification}\n"
                 )
 
 
@@ -670,7 +801,7 @@ def process_slide(args: PatchConfig, slide_path: str, patch_coords: list):
     slide_id = get_slide_id(slide_path)
 
     # prepare csv
-    csv_header = "slide_id,idx,x,y,tissue_percentage,patch_size,magnification\n"
+    csv_header = "slide_id,idx,x,y,score,patch_size,magnification\n"
     csv_path = f"{args.patch_folder}/{slide_id}.csv"
     if not os.path.exists(csv_path):
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
@@ -716,7 +847,7 @@ def keep_top_n(args, slide_id: str):
 
     # sort by tissue percentage, but only for 40x patches
     sorted_csv = csv[csv["magnification"] == 40]
-    sorted_csv = sorted_csv.sort_values(by="tissue_percentage", ascending=False)
+    sorted_csv = sorted_csv.sort_values(by="score", ascending=False)
     keep_csv = sorted_csv.head(args.keep_top_n)
     keep_idx = set(keep_csv["idx"])
     for idx in tqdm(csv["idx"], desc=f"Cleaning up {slide_id}"):

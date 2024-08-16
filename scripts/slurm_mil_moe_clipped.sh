@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -c 16
-#SBATCH -t 1-00:00
-#SBATCH -p gpu_yu
-#SBATCH --account=yu_ky98_contrib
-#SBATCH --mem=38G 
+#SBATCH -t X-XX:XX
+#SBATCH -p XX
+#SBATCH --account=XX
+#SBATCH --mem=XXG 
 #SBATCH -x compute-gc-17-252
 #SBATCH -o logs/milmoeCOMP%j.out
 #SBATCH -e logs/milmoeCOMP%j.err
@@ -15,7 +15,7 @@ module load cuda/12.1
 module load miniconda3
 
 # === CHANGE THESE ===
-source activate /home/gul075/.conda/envs/MOE_github
+source activate # Activate Env HERE
 
 echo "==============================="
 nvidia-smi

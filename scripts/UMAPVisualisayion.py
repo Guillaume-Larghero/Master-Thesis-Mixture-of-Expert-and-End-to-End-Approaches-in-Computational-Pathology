@@ -127,17 +127,6 @@ def main(cfg : DictConfig):
                              2*np.ones(len(rep_MRXS))])
 
     unique_colors = dataset_ids * 2 + labels
-    
-    print(f"we have {unique_colors} unique colors")
-    print(f"and datset ids are : {dataset_ids}")
-    
-    print("Pooled Representations Statistics:")
-    print(f"Shape: {pooled_representations.shape}")
-    print(f"Mean: {np.mean(pooled_representations, axis=0)}")
-    print(f"Standard Deviation: {np.std(pooled_representations, axis=0)}")
-    print(f"Min: {np.min(pooled_representations, axis=0)}")
-    print(f"Max: {np.max(pooled_representations, axis=0)}")
-
 
     reducer = umap.UMAP(n_neighbors=600 ,min_dist=0.99999999999 , metric = "cosine", spread = 55) # metric = "cosine" or "correlation"
     umap_embeddings = reducer.fit_transform(pooled_representations)
@@ -157,11 +146,6 @@ def main(cfg : DictConfig):
     scatter = plt.scatter(umap_embeddings[:, 0], umap_embeddings[:, 1], c=mapped_colors, cmap=custom_cmap, s=10)
     plt.colorbar(scatter, ticks=[0, 1, 2, 3, 4, 5])
     plt.title('UMAP of Pooled Representations from ABMIL')
-
-    '''plt.figure(figsize=(10, 7))
-    scatter = plt.scatter(umap_embeddings[:, 0], umap_embeddings[:, 1], c=unique_colors, cmap='tab10', s=10)
-    plt.colorbar(scatter)
-    plt.title('UMAP of Pooled Representations from ABMIL')'''
 
     # Save the plot
     save_path = "/home/gul075/TEMPFIG/UMAP_COSINE_ALLCOHORT_6COLORS_AMLAPL.png"

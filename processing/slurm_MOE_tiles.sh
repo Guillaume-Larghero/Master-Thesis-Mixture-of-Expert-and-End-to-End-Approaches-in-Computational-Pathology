@@ -9,10 +9,10 @@
 #   arguments.
 # ==================================================================
 #SBATCH -c 8
-#SBATCH -t 0-0:30
-#SBATCH -p short
-#SBATCH --account=yu_ky98
-#SBATCH --mem=3G
+#SBATCH -t X-XX:XX
+#SBATCH -p XX
+#SBATCH --account=XX
+#SBATCH --mem=XXG
 #SBATCH -o logs/tile_extraction%j.out
 #SBATCH -e logs/tile_extraction%j.err
 
@@ -21,7 +21,7 @@ module load cuda/12.1
 module load miniconda3/23.1.0
 
 # === CHANGE THIS ===
-source activate /home/che099/.conda/envs/patchextraction
+source activate # ADD ENVIRO HERE
 
 which python3
 python3 --version
@@ -29,7 +29,7 @@ python3 --version
 n_parts=${3:-0}
 part=${4:-1}
 
-python create_tiles.py \
+python create_MOE_tiles.py \
     --slide_folder $1 \
     --patch_folder $2 \
     --output_size 224 \

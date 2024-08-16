@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH -c 16
-#SBATCH -t 0-02:00
-#SBATCH -p short
-#SBATCH --mem=16G 
+#SBATCH -t 0-XX:00
+#SBATCH -p XX
+#SBATCH --mem=XXG 
 #SBATCH -o logs/UMAP%j.out
 #SBATCH -e logs/UMAP%j.err
 
 
 # === CHANGE THESE ===
-source activate /home/gul075/.conda/envs/MOE_github
+source activate #Activate Env HERE
 
 echo "==============================="
 echo "configname is UMAP"

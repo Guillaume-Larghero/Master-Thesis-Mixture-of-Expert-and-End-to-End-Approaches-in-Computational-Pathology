@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -c 8
-#SBATCH -t 1-00:00
-#SBATCH -p gpu_yu
-#SBATCH --account=yu_ky98_contrib
-#SBATCH --mem=24G
+#SBATCH -t X-XX:XX
+#SBATCH -p XX
+#SBATCH --account=XX
+#SBATCH --mem=XXG
 #SBATCH -o logs/normalization%j.out
 #SBATCH -e logs/normalization%j.err
 #SBATCH --gres=gpu:1
@@ -13,7 +13,7 @@ module load cuda/12.1
 module load miniconda3
 
 # === CHANGE THESE ===
-source activate /home/gul075/.conda/envs/MOE_github
+source activate # ADD ENV HERE
 
 echo "==============================="
 nvidia-smi

@@ -10,10 +10,10 @@
 #   argument.
 # ==================================================================
 #SBATCH -c 8
-#SBATCH -t 3-00:00
-#SBATCH -p gpu_yu
-#SBATCH --account=yu_ky98_contrib
-#SBATCH --mem=48G
+#SBATCH -t X-XX:XX
+#SBATCH -p XX
+#SBATCH --account=XX
+#SBATCH --mem=XXG
 #SBATCH -o logs/feature_extraction%j.out
 #SBATCH -e logs/feature_extraction%j.err
 #SBATCH --gres=gpu:1
@@ -23,8 +23,8 @@ module load cuda/12.1
 module load miniconda3
 
 # === CHANGE THESE ===
-source activate /home/gul075/.conda/envs/MOE_github
-hf_token="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" # <- add your huggingface token here to use the uni model (https://huggingface.co/settings/tokens)
+source activate # ADD ENVIRONMENT HERE
+hf_token="" # <- add your huggingface token here to use the uni model (https://huggingface.co/settings/tokens)
 
 n_parts=${3:-1}
 part=${4:-0}

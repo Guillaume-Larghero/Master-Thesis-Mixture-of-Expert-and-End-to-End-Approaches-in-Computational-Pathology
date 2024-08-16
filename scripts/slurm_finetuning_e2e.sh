@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -c 16
-#SBATCH -t 4-00:00
-#SBATCH -p gpu_yu
-#SBATCH --account=yu_ky98_contrib
-#SBATCH --mem=48G 
+#SBATCH -t X-XX:XX
+#SBATCH -p XX
+#SBATCH --account=XX
+#SBATCH --mem=XXG 
 #SBATCH -o logs/milE2EFineTune%j.out
 #SBATCH -e logs/milE2EFineTune%j.err
 #SBATCH --gres=gpu:1
@@ -13,7 +13,7 @@ module load cuda/12.4  # Match this with the version detected by nvidia-smi
 module load miniconda3
 
 # Activate the conda environment
-source activate /home/gul075/.conda/envs/MOE_github
+source activate # Activate Env HERE
 
 # Show the GPU details
 echo "==============================="
