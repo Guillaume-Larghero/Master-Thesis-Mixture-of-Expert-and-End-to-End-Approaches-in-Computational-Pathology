@@ -1,0 +1,57 @@
+seed: 1
+
+# Paths for data 
+data:
+  label_file: "/n/data2/hms/dbmi/kyu/lab/gul075/NTU_Labels_SC_FLT3.xlsx"
+  image_folder: "/n/data2/hms/dbmi/kyu/lab/gul075/Cytology_Tile_NTU_SC_100x"
+  label_column: "FLT3" 
+  tile_number: 150
+  augment: false
+  folds: 5
+  n_classes: 2
+  cohort: "NTU"  # Change based on which cohort you are working with
+  batch_size: 4
+  complete_batch_size : 32
+  num_workers: 16
+
+train:
+  device: "cuda"
+  epochs: 120
+  early_stopping: true
+  patience: 80
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.00001
+
+criterion:
+  _target_: torch.nn.BCEWithLogitsLoss
+  pos_weight: null  # Will be set in the script based on class weights
+
+
+
+# Model Configuration
+extractor:
+  _target_: models.extractor.VGG19FeatureExtractor
+  freeze_until: 28  # Freeze layers up to this point
+
+head:
+  _target_: models.owkin.abmil.ABMIL
+  in_features: 4096
+  out_features: 1
+  d_model_attention: 4096
+  temperature: 1.0
+  tiles_mlp_hidden: [1024 , 512]
+  mlp_hidden: [512, 246]
+  mlp_dropout: [0.25, 0.1]
+  metadata_cols: 0
+  mlp_activation:
+    _target_: torch.nn.ReLU
+
+checkpoints:
+  save_dir: "/n/scratch/users/g/gul075/checkpoints/Leukemia/FLT3/NTU_SC/40xNORM"
+
+logger:
+  _target_: utils.logger.TensorboardLogger
+  log_dir: "/n/scratch/users/g/gul075/TBLOGS_FLT3_SC_CLIPPED"
+  experiment_id: "${now:%Y-%m-%d_%H-%M-%S}_leukemia_FLT3_E2Emil_SC_NTU_150_batch32_NoAug"

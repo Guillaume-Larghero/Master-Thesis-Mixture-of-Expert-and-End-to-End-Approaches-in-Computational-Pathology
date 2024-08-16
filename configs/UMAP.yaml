@@ -1,0 +1,22 @@
+seed : 42
+
+extractor:
+  _target_: models.extractor.VGG19FeatureExtractor
+  freeze_until: 28  # Freeze layers up to this point
+
+head:
+  _target_: models.owkin.abmil.ABMIL
+  in_features: 4096
+  out_features: 1
+  d_model_attention: 4096
+  temperature: 1.0
+  tiles_mlp_hidden: [1024 , 512]
+  mlp_hidden: [512, 246]
+  mlp_dropout: [0.25, 0.1]
+  metadata_cols: 0
+  mlp_activation:
+    _target_: torch.nn.ReLU
+
+data:
+  label_column: "AML_APL" 
+  tile_number: 150
