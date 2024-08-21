@@ -1,4 +1,4 @@
-# Master Thesis: Computational Pathology using Machine Learning on Whole-Slide Images
+# Master Thesis: Mixture of Experts and End-to-End Approaches in Computational Pathology: Machine Learning for Leukemia Diagnosis and Genetic Analysis
 
 This repository contains the codebase for my Master's Thesis, focused on computational pathology using machine learning techniques applied to whole-slide images (WSIs). The goal is to predict leukemia subtypes and gene expression using two distinct pipelines: **Mixture of Experts (MOE)** and **End-to-End (E2E)**.
 
