@@ -22,3 +22,14 @@ To run the code in this repository, you'll need to set up the required environme
 
 ```bash
 pip install -r requirements.txt
+
+
+## Pipeline 1: Mixture of Experts (MOE)
+
+The **MOE pipeline** is designed to leverage multiple foundation models as experts, each providing predictions that are combined to make a final decision. The pipeline consists of the following components:
+
+- **create_MOE_tiles** (located in `processing/`): Extracts useful patches at 40x magnification from WSIs.
+- **Create_features** (located in `processing/`): Extracts feature vectors from the patches using foundation models.
+- **normalize_patches** (located in `processing/`): Normalizes the extracted patches using Macenko normalization. This step is recommended to be run after `create_MOE_tiles` and before `Create_features`.
+- **train_mil_moe_clipped.py** (located in `scripts/`): Trains, validates, and tests an MOE model. The model can be instantiated with a configurable number of experts. Each expert consists of a foundation model and a classification head. Available classification heads include ABMIL, DSMIL, MeanPool, TransMIL, and HiptMIL. The MOE strategy can be either `top-k`, which selects the best-performing model at inference, or `weighted sum`, which weights predictions according to the router's probability distribution.
+- **finetuning_MOE** (located in `scripts/`): Fine-tunes a pre-trained MOE model to a different cohort.
