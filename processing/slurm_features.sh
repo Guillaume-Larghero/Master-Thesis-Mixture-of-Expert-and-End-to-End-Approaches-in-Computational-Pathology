@@ -40,8 +40,8 @@ echo "==============================="
 
 python -c "import torch;print(torch.cuda.is_available())"
 
-export CHIEF_PTH="/n/data2/hms/dbmi/kyu/lab/che099/models/chief.onnx"
-export CTRANS_PTH="/n/data2/hms/dbmi/kyu/lab/che099/models/ctranspath.onnx"
+export CHIEF_PTH="/YOURPATHTOFILE/chief.onnx"
+export CTRANS_PTH="/YOURPATHTOFILE/ctranspath.onnx"
 
 
 python create_features.py \
