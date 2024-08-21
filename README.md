@@ -8,7 +8,6 @@ This repository contains the codebase for my Master's Thesis, focused on computa
 - [Pipeline 1: Mixture of Experts (MOE)](#pipeline-1-mixture-of-experts-moe)
 - [Pipeline 2: End-to-End (E2E)](#pipeline-2-end-to-end-e2e)
 - [Usage](#usage)
-- [License](#license)
 
 ## Introduction
 
@@ -44,3 +43,20 @@ The **E2E pipeline** is a straightforward approach that focuses on single-cell a
 - **train_mil_e2e** (located in `scripts/`): Trains an end-to-end classifier. The classifier can be instantiated with a feature extractor backbone and a classification head. The available classification heads include ABMIL, DSMIL, MeanPool, TransMIL, and HiptMIL.
 - **finetune_E2E** (located in `scripts/`): Fine-tunes a trained E2E model to a desired cohort.
 
+## Usage
+
+Detailed instructions for running each pipeline can be found in the [usage documentation](docs/usage.md). Below is a brief example of how to run the End to End pipeline:
+
+1. **Extract Patches (Single cell - 100x)**:
+   ```bash
+   sbatch slurm_tiles_SC.sh /path/to/input/folders /path/to/output/folder```
+
+2. **Train End to End**:
+   ```bash
+    sbatch slurm_mil_e2e_GPU.sh CONFIG_NAME_TRAINING  #(without .yaml)```
+
+3. **Finetune on External Cohort**:
+   ```bash
+    sbatch slurm_finetuning_e2e.sh CONFIG_NAME_FINETUNING```
+
+   
