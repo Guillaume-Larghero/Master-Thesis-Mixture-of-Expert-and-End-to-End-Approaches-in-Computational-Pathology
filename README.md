@@ -35,3 +35,12 @@ The **MOE pipeline** is designed to leverage multiple foundation models as exper
 - **normalize_patches** (located in `processing/`): Normalizes the extracted patches using Macenko normalization. This step is recommended to be run after `create_MOE_tiles` and before `Create_features`.
 - **train_mil_moe_clipped.py** (located in `scripts/`): Trains, validates, and tests an MOE model. The model can be instantiated with a configurable number of experts. Each expert consists of a foundation model and a classification head. Available classification heads include ABMIL, DSMIL, MeanPool, TransMIL, and HiptMIL. The MOE strategy can be either `top-k`, which selects the best-performing model at inference, or `weighted sum`, which weights predictions according to the router's probability distribution.
 - **finetuning_MOE** (located in `scripts/`): Fine-tunes a pre-trained MOE model to a different cohort.
+
+## Pipeline 2: End-to-End (E2E)
+
+The **E2E pipeline** is a straightforward approach that focuses on single-cell analysis. The pipeline consists of the following components:
+
+- **create_tiles_SC** (located in `processing/`): Extracts single-cell blast cells from WSIs at 100x magnification.
+- **train_mil_e2e** (located in `scripts/`): Trains an end-to-end classifier. The classifier can be instantiated with a feature extractor backbone and a classification head. The available classification heads include ABMIL, DSMIL, MeanPool, TransMIL, and HiptMIL.
+- **finetune_E2E** (located in `scripts/`): Fine-tunes a trained E2E model to a desired cohort.
+
