@@ -49,14 +49,14 @@ Detailed instructions for running each scripts can be found on the scripts thems
 
 1. **Extract Patches (Single cell - 100x)**:
    ```bash
-   sbatch slurm_tiles_SC.sh /path/to/input/folders /path/to/output/folder```
+   sbatch slurm_tiles_SC.sh /path/to/input/folders /path/to/output/folder
 
 2. **Train End to End**:
    ```bash
-    sbatch slurm_mil_e2e_GPU.sh CONFIG_NAME_TRAINING  #(without .yaml)```
+    sbatch slurm_mil_e2e_GPU.sh CONFIG_NAME_TRAINING  #(without .yaml)
 
 3. **Finetune on External Cohort**:
    ```bash
-    sbatch slurm_finetuning_e2e.sh CONFIG_NAME_FINETUNING```
+    sbatch slurm_finetuning_e2e.sh CONFIG_NAME_FINETUNING #(without .yaml)
 
    
