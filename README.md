@@ -22,6 +22,8 @@ To run the code in this repository, you'll need to set up the required environme
 
 ```bash
 pip install -r requirements.txt
+```
+
 
 
 ## Pipeline 1: Mixture of Experts (MOE)
